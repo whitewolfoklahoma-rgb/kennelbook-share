@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KennelBook — Dog Boarding Kennel &amp; Daycare Book</title>
+<style>
+  :root{ --ink:#263238; --mut:#607d8b; --brand:#4e6e58; --brand2:#6a994e; --bg:#f6f7f3; --card:#fff; --line:#dfe5da; --bad:#b3261e; --warn:#9a6b00; --ok:#2e7d32; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+  header{ background:var(--brand); color:#fff; padding:12px 16px; }
+  header h1{ margin:0; font-size:20px; }
+  header .sub{ font-size:12.5px; opacity:.9; margin-top:2px; }
+  nav{ display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0; }
+  nav button{ border:1px solid var(--line); background:#fff; color:var(--ink); padding:8px 12px; border-radius:999px; font-size:14px; cursor:pointer; }
+  nav button.on{ background:var(--brand); color:#fff; border-color:var(--brand); }
+  main{ padding:12px; max-width:980px; margin:0 auto; }
+  .tab{ display:none; } .tab.on{ display:block; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px; }
+  .card h2{ margin:0 0 8px; font-size:16px; } .card h3{ margin:10px 0 6px; font-size:14px; }
+  .row{ display:flex; flex-wrap:wrap; gap:10px; } .row > *{ flex:1 1 150px; }
+  label{ display:block; font-size:12.5px; color:var(--mut); margin:8px 0 3px; }
+  input, select, textarea{ width:100%; padding:9px; border:1px solid var(--line); border-radius:8px; font-size:15px; background:#fff; color:var(--ink); }
+  textarea{ min-height:56px; }
+  .btn{ display:inline-block; border:none; background:var(--brand2); color:#fff; padding:9px 14px; border-radius:8px; font-size:14.5px; cursor:pointer; margin:4px 4px 4px 0; }
+  .btn.alt{ background:#78909c; } .btn.danger{ background:var(--bad); } .btn.small{ padding:5px 9px; font-size:13px;min-height:40px;}
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  th, td{ text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ color:var(--mut); font-weight:600; font-size:12.5px; }
+  .stat{ background:#eef3ea; border-radius:10px; padding:10px 12px; flex:1 1 140px; }
+  .stat b{ display:block; font-size:20px; }
+  .pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pill.ok{ background:#e0f0e2; color:var(--ok); } .pill.soon{ background:#fdf0d0; color:var(--warn); }
+  .pill.expired, .pill.missing{ background:#fadbd8; color:var(--bad); } .pill.info{ background:#e3ecf5; color:#33526e; }
+  .flag{ color:var(--bad); font-weight:700; } .warnT{ color:var(--warn); font-weight:600; }
+  .muted{ color:var(--mut); font-size:13px; }
+  .hidden{ display:none; }
+  .chk{ display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid var(--line); }
+  .chk input{ width:auto; margin-top:3px; }
+  @media (max-width:560px){ th,td{ padding:6px 4px; font-size:13px; } header h1{ font-size:18px; } }
+  @media print{ nav, .noprint{ display:none !important; } body{ background:#fff; } .tab{ display:none; } .tab.on{ display:block; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐾 <span id="bizName">KennelBook</span></h1>
+  <div class="sub">Dog boarding kennel &amp; daycare book — runs, nights, vaccination records, packages &amp; pickup settlement. Works 100% offline.</div>
+</header>
+<nav id="tabs">
+  <button data-tab="dash" class="on" onclick="KB.show('dash')">Dashboard</button>
+  <button data-tab="dogs" onclick="KB.show('dogs')">Dogs</button>
+  <button data-tab="bookings" onclick="KB.show('bookings')">Bookings</button>
+  <button data-tab="packages" onclick="KB.show('packages')">Packages</button>
+  <button data-tab="care" onclick="KB.show('care')">Care Log</button>
+  <button data-tab="money" onclick="KB.show('money')">Money</button>
+  <button data-tab="help" onclick="KB.show('help')">Help &amp; Settings</button>
+</nav>
+<main>
+
+<!-- ============ DASHBOARD ============ -->
+<section id="tab-dash" class="tab on">
+  <div class="card"><h2>Today</h2><div class="row" id="dashStats"></div></div>
+  <div class="card"><h2>In the kennel today</h2><div id="dashInHouse"></div></div>
+  <div class="card"><h2>⚠ Vaccination alerts</h2><div id="dashVax"></div></div>
+  <div class="card"><h2>💲 Balances still owed</h2><div id="dashOwed"></div></div>
+</section>
+
+<!-- ============ DOGS ============ -->
+<section id="tab-dogs" class="tab">
+  <div class="card">
+    <h2>Dogs</h2>
+    <input id="dogSearch" placeholder="Search dog, breed, or owner…" oninput="KB.renderDogs()">
+    <div id="dogList" style="margin-top:10px"></div>
+    <button class="btn" onclick="KB.dogForm()">+ Add a dog</button>
+  </div>
+  <div class="card hidden" id="dogFormCard">
+    <h2 id="dogFormTitle">Add a dog</h2>
+    <input type="hidden" id="df_id">
+    <div class="row">
+      <div><label>Dog's name *</label><input id="df_name"></div>
+      <div><label>Breed</label><input id="df_breed"></div>
+      <div><label>Size / weight</label><input id="df_size" placeholder="e.g. 55 lb"></div>
+    </div>
+    <div class="row">
+      <div><label>Owner name *</label><input id="df_owner"></div>
+      <div><label>Owner phone</label><input id="df_phone"></div>
+    </div>
+    <div class="row">
+      <div><label>Emergency contact</label><input id="df_emergName"></div>
+      <div><label>Emergency phone</label><input id="df_emergPhone"></div>
+      <div><label>Vet clinic</label><input id="df_vet"></div>
+    </div>
+    <h3>Vaccination expiry dates</h3>
+    <div class="row">
+      <div><label>Rabies expires</label><input id="df_rabies" type="date"></div>
+      <div><label>Bordetella expires</label><input id="df_bord" type="date"></div>
+      <div><label>Distemper/parvo expires</label><input id="df_dist" type="date"></div>
+    </div>
+    <label>Feeding instructions</label><textarea id="df_feeding" placeholder="e.g. 1 cup kibble AM &amp; PM, no chicken"></textarea>
+    <label>Medications</label><textarea id="df_meds" placeholder="e.g. Apoquel 16mg with AM feeding"></textarea>
+    <label>Notes</label><textarea id="df_notes"></textarea>
+    <div style="margin-top:10px">
+      <button class="btn" onclick="KB.saveDog()">Save dog</button>
+      <button class="btn alt" onclick="KB.hide('dogFormCard')">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BOOKINGS ============ -->
+<section id="tab-bookings" class="tab">
+  <div class="card">
+    <h2>Bookings</h2>
+    <div class="row">
+      <div><label>Show</label><select id="bkFilter" onchange="KB.renderBookings()">
+        <option value="upcoming">Upcoming &amp; in-house</option><option value="all">All bookings</option>
+        <option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+    </div>
+    <div id="bookingList" style="margin-top:8px"></div>
+    <button class="btn" onclick="KB.bookingForm()">+ New booking</button>
+    <button class="btn alt" onclick="KB.printVaxReport()">🖨 Vaccination report</button>
+  </div>
+  <div class="card hidden" id="bookingFormCard">
+    <h2 id="bkFormTitle">New booking</h2>
+    <input type="hidden" id="bf_id">
+    <div class="row">
+      <div><label>Dog *</label><select id="bf_dog"></select></div>
+      <div><label>Type</label><select id="bf_type"><option value="boarding">Boarding (per night)</option><option value="daycare">Daycare (per day)</option></select></div>
+      <div><label>Run / area</label><input id="bf_run" placeholder="e.g. Run 3"></div>
+    </div>
+    <div class="row">
+      <div><label>Check-in / first day *</label><input id="bf_start" type="date"></div>
+      <div><label>Check-out / last day *</label><input id="bf_end" type="date"></div>
+      <div><label>Rate per night/day ($)</label><input inputmode="decimal" id="bf_rate" type="number" min="0" step="0.01"></div>
+    </div>
+    <div class="row">
+      <div><label>Pay from package (optional)</label><select id="bf_pkg"></select></div>
+      <div><label>Status</label><select id="bf_status"><option value="booked">Booked</option><option value="checked-in">Checked in</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+      <div><label>Amount paid so far ($)</label><input inputmode="decimal" id="bf_paid" type="number" min="0" step="0.01"></div>
+    </div>
+    <label>Extras (one per line: label, amount)</label>
+    <textarea id="bf_extras" placeholder="Bath, 25&#10;Medication administration, 10"></textarea>
+    <label>Notes</label><textarea id="bf_notes"></textarea>
+    <div id="bf_warn" class="flag"></div>
+    <div style="margin-top:10px">
+      <button class="btn" onclick="KB.saveBooking()">Save booking</button>
+      <button class="btn alt" onclick="KB.hide('bookingFormCard')">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PACKAGES ============ -->
+<section id="tab-packages" class="tab">
+  <div class="card">
+    <h2>Prepaid packages</h2>
+    <p class="muted">Night bundles and daycare packs an owner buys up front. Bookings draw units off the package; what's left is always shown, and pickup settlement credits the nights already paid for.</p>
+    <div id="packageList"></div>
+    <button class="btn" onclick="KB.packageForm()">+ Sell a package</button>
+  </div>
+  <div class="card hidden" id="packageFormCard">
+    <h2 id="pkgFormTitle">Sell a package</h2>
+    <input type="hidden" id="pf_id">
+    <div class="row">
+      <div><label>Dog *</label><select id="pf_dog"></select></div>
+      <div><label>Package type</label><select id="pf_kind"><option value="nights">Boarding nights</option><option value="sessions">Daycare sessions</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Total nights/sessions *</label><input inputmode="decimal" id="pf_total" type="number" min="1" step="1"></div>
+      <div><label>Price paid ($)</label><input inputmode="decimal" id="pf_price" type="number" min="0" step="0.01"></div>
+      <div><label>Date purchased</label><input id="pf_date" type="date"></div>
+    </div>
+    <label>Notes</label><textarea id="pf_notes"></textarea>
+    <div style="margin-top:10px">
+      <button class="btn" onclick="KB.savePackage()">Save package</button>
+      <button class="btn alt" onclick="KB.hide('packageFormCard')">Cancel</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CARE LOG ============ -->
+<section id="tab-care" class="tab">
+  <div class="card">
+    <h2>Care log</h2>
+    <div class="row">
+      <div><label>Date</label><input id="careDate" type="date" onchange="KB.renderCare()"></div>
+      <div style="align-self:end"><button class="btn alt" onclick="KB.printCareSheet()">🖨 Print care sheet</button></div>
+    </div>
+    <div id="careList" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h2>Add a care entry</h2>
+    <div class="row">
+      <div><label>Dog *</label><select id="cf_dog"></select></div>
+      <div><label>Kind</label><select id="cf_kind"><option value="feeding">Feeding</option><option value="medication">Medication</option><option value="note">Note / exercise</option></select></div>
+    </div>
+    <label>What was done</label><input id="cf_text" placeholder="e.g. AM feeding — ate all; Apoquel given">
+    <div style="margin-top:10px"><button class="btn" onclick="KB.saveLog()">Add entry</button></div>
+  </div>
+</section>
+
+<!-- ============ MONEY ============ -->
+<section id="tab-money" class="tab">
+  <div class="card"><h2>Money</h2><div class="row" id="moneyStats"></div><div id="moneyDetail" style="margin-top:8px"></div>
+    <button class="btn alt" onclick="KB.printMoney()">🖨 Print money summary</button>
+  </div>
+</section>
+
+<!-- ============ HELP & SETTINGS ============ -->
+<section id="tab-help" class="tab">
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="row">
+      <div><label>Business name</label><input id="st_biz"></div>
+      <div><label>Phone</label><input id="st_phone"></div>
+      <div><label>Email</label><input id="st_email"></div>
+    </div>
+    <div class="row">
+      <div><label>Default boarding rate / night ($)</label><input inputmode="decimal" id="st_boardRate" type="number" min="0" step="0.01"></div>
+      <div><label>Default daycare rate / day ($)</label><input inputmode="decimal" id="st_dayRate" type="number" min="0" step="0.01"></div>
+      <div><label>"Expiring soon" window (days)</label><input inputmode="decimal" id="st_soonDays" type="number" min="1" step="1"></div>
+    </div>
+    <div style="margin-top:10px"><button class="btn" onclick="KB.saveSettings()">Save settings</button></div>
+  </div>
+  <div class="card">
+    <h2>Backup</h2>
+    <p class="muted">Your records live only in this browser on this device. Export a backup regularly; import it on a new device to move your book.</p>
+    <button class="btn" onclick="KB.exportData()">Export backup</button>
+    <label>Import backup</label><input type="file" id="importFile" accept=".json" onchange="KB.importData(this)">
+  </div>
+  <div class="card">
+    <h2>Sample data</h2>
+    <p class="muted">The app loads with a sample kennel (5 dogs, stays, packages, care entries) so you can see every screen working. Clear it when you're ready for your own dogs.</p>
+    <button class="btn danger" onclick="KB.clearDemo()">Clear sample data</button>
+    <button class="btn danger" onclick="KB.eraseAll()">Erase EVERYTHING</button>
+  </div>
+  <div class="card">
+    <h2>How KennelBook works</h2>
+    <p><b>Nights:</b> a boarding stay is billed by nights — check-out date minus check-in date (in Friday, out Monday = 3 nights). A same-day in-and-out counts as 1 night. Daycare is billed per day, counting both the first and last day.</p>
+    <p><b>Vaccinations:</b> rabies, bordetella, and distemper/parvo expiry dates live on each dog's record. A dog whose rabies is expired (or has no rabies date on file) is flagged <span class="flag">CANNOT BOARD</span> everywhere it matters — the dog list, the dashboard, and the booking form. Expired bordetella/distemper shows a warning, and any vaccine inside your "expiring soon" window (default 30 days) is flagged before it lapses.</p>
+    <p><b>Packages:</b> when you sell a package (say 10 nights for $350), bookings you link to it draw nights off the balance. At pickup, the settlement statement credits those nights at the booking's rate — the owner only owes nights beyond the package, plus extras, minus anything already paid.</p>
+    <p><b>Settlement:</b> every booking's statement shows nights/days × rate, extras, package credit, payments, and the balance due — printable for the owner's copy at pickup.</p>
+    <p><b>Honest limits:</b> KennelBook is the kennel's own book. It does not take online bookings or card payments, send reminders, or sync between devices — export/import moves the book manually. It keeps records; it gives no veterinary or legal advice.</p>
+  </div>
+<div id="legalSection"></div>
+</section>
+
+</main>
+<script>
+"use strict";
+/* ================= KennelBook — data layer ================= */
+var KEY = "kennelbook_v1";
+var S = null; // state
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ if (s === null || s === undefined) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function num(v, dflt){ var n = parseFloat(v); return isFinite(n) ? n : (dflt || 0); }
+function money(n){ n = num(n); var neg = n < 0; n = Math.abs(n); var s = "$" + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); return neg ? "-" + s : s; }
+function uid(){ return "x" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+
+/* ---------- dates (all ISO yyyy-mm-dd, UTC-safe) ---------- */
+function todayISO(){ var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function validISODate(s){
+  if (typeof s !== "string") return false;
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); if (!m) return false;
+  var y = +m[1], mo = +m[2], da = +m[3]; if (mo < 1 || mo > 12 || da < 1 || da > 31) return false;
+  var d = new Date(Date.UTC(y, mo - 1, da));
+  return d.getUTCFullYear() === y && d.getUTCMonth() === mo - 1 && d.getUTCDate() === da;
+}
+function parseISO(s){ var p = s.split("-"); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+function fmtISO(ms){ var d = new Date(ms); return d.getUTCFullYear() + "-" + ("0" + (d.getUTCMonth() + 1)).slice(-2) + "-" + ("0" + d.getUTCDate()).slice(-2); }
+function addDays(iso, n){ return fmtISO(parseISO(iso) + n * 86400000); }
+function daysBetween(a, b){ return Math.round((parseISO(b) - parseISO(a)) / 86400000); }
+function prettyDate(iso){ if (!validISODate(iso)) return "—"; var p = iso.split("-"); var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return months[+p[1] - 1] + " " + (+p[2]) + ", " + p[0]; }
+
+/* ---------- vaccination logic ---------- */
+/* status: missing | expired | soon | ok ; daysLeft is null when missing */
+function vaxStatus(expISO, today, soonDays){
+  if (!validISODate(expISO)) return { status: "missing", daysLeft: null };
+  var d = daysBetween(today, expISO);
+  if (d < 0) return { status: "expired", daysLeft: d };
+  if (d <= (soonDays || 30)) return { status: "soon", daysLeft: d };
+  return { status: "ok", daysLeft: d };
+}
+var VAX_FIELDS = [ ["rabiesExp", "Rabies"], ["bordExp", "Bordetella"], ["distExp", "Distemper/parvo"] ];
+function dogVax(dog, today, soonDays){
+  var out = {}, worst = "ok", rank = { ok: 0, soon: 1, missing: 2, expired: 3 };
+  for (var i = 0; i < VAX_FIELDS.length; i++){
+    var f = VAX_FIELDS[i][0];
+    out[f] = vaxStatus(dog[f], today, soonDays);
+    if (rank[out[f].status] > rank[worst]) worst = out[f].status;
+  }
+  out.worst = worst;
+  out.canBoard = !(out.rabiesExp.status === "expired" || out.rabiesExp.status === "missing");
+  return out;
+}
+
+/* ---------- billing math ---------- */
+function bookingUnits(b){
+  if (!validISODate(b.start) || !validISODate(b.end)) return 0;
+  var d = daysBetween(b.start, b.end);
+  if (b.type === "daycare") return Math.max(1, d + 1);   /* count first and last day */
+  return Math.max(1, d);                                 /* nights = out − in, min 1 */
+}
+function extrasTotal(b){
+  var t = 0; if (b.extras) for (var i = 0; i < b.extras.length; i++) t += num(b.extras[i].amount);
+  return Math.round(t * 100) / 100;
+}
+function bookingGross(b){ return Math.round((bookingUnits(b) * num(b.rate) + extrasTotal(b)) * 100) / 100; }
+function pkgUsed(pkgId, exceptBookingId){
+  var t = 0;
+  for (var i = 0; i < S.bookings.length; i++){
+    var b = S.bookings[i];
+    if (b.pkgId === pkgId && b.status !== "cancelled" && b.id !== exceptBookingId) t += num(b.pkgUnitsUsed);
+  }
+  return t;
+}
+function pkgRemaining(pkg, exceptBookingId){ return Math.max(0, num(pkg.total) - pkgUsed(pkg.id, exceptBookingId)); }
+function pkgCredit(b){ return Math.round(num(b.pkgUnitsUsed) * num(b.rate) * 100) / 100; }
+function bookingDue(b){
+  if (b.status === "cancelled") return 0;
+  return Math.round((bookingGross(b) - pkgCredit(b) - num(b.paid)) * 100) / 100;
+}
+function settlement(b){
+  return { units: bookingUnits(b), rate: num(b.rate), gross: bookingGross(b),
+           extras: extrasTotal(b), pkgUnits: num(b.pkgUnitsUsed), pkgCredit: pkgCredit(b),
+           paid: num(b.paid), due: bookingDue(b) };
+}
+function moneyTotals(){
+  var gross = 0, collected = 0, owed = 0, pkgRevenue = 0, i;
+  for (i = 0; i < S.bookings.length; i++){
+    var b = S.bookings[i]; if (b.status === "cancelled") continue;
+    gross += bookingGross(b); collected += num(b.paid);
+    var d = bookingDue(b); if (d > 0) owed += d;
+  }
+  for (i = 0; i < S.packages.length; i++) pkgRevenue += num(S.packages[i].price);
+  return { gross: Math.round(gross * 100) / 100, collected: Math.round(collected * 100) / 100,
+           owed: Math.round(owed * 100) / 100, pkgRevenue: Math.round(pkgRevenue * 100) / 100,
+           pkgCreditGiven: Math.round(S.bookings.reduce(function(a, b){ return a + (b.status === "cancelled" ? 0 : pkgCredit(b)); }, 0) * 100) / 100 };
+}
+function inHouseOn(iso){
+  var out = [];
+  for (var i = 0; i < S.bookings.length; i++){
+    var b = S.bookings[i];
+    if (b.status === "cancelled" || b.status === "completed") continue;
+    if (validISODate(b.start) && validISODate(b.end) && b.start <= iso && iso <= b.end) out.push(b);
+  }
+  return out;
+}
+
+/* ---------- seed / storage ---------- */
+function seed(){
+  var T = todayISO();
+  var st = { settings: { biz: "KennelBook", phone: "", email: "", boardRate: 40, dayRate: 25, soonDays: 30 },
+             dogs: [], bookings: [], packages: [], logs: [], seeded: true };
+  function dog(name, breed, size, owner, phone, emerg, ephone, vet, rab, bord, dist, feeding, meds, notes){
+    return { id: uid() + name, name: name, breed: breed, size: size, ownerName: owner, ownerPhone: phone,
+             emergName: emerg, emergPhone: ephone, vet: vet, rabiesExp: rab, bordExp: bord, distExp: dist,
+             feeding: feeding, meds: meds, notes: notes };
+  }
+  st.dogs.push(dog("Biscuit", "Golden Retriever", "62 lb", "Dana Whitfield", "918-555-0142", "Sam Whitfield", "918-555-0143", "Grand Lake Vet", addDays(T, 200), addDays(T, 12), addDays(T, 300), "1½ cups kibble AM & PM", "", "Gentle; loves the big yard."));
+  st.dogs.push(dog("Rocky", "Boxer", "58 lb", "Marcus Bell", "918-555-0117", "Tina Bell", "918-555-0118", "Riverside Animal Clinic", addDays(T, -10), addDays(T, 90), addDays(T, 45), "2 cups AM & PM", "", "High energy. Rabies lapsed — needs a current cert before boarding."));
+  st.dogs.push(dog("Luna", "Border Collie", "41 lb", "Priya Nair", "918-555-0161", "Arun Nair", "918-555-0162", "Grand Lake Vet", addDays(T, 150), addDays(T, 150), addDays(T, 210), "1 cup AM & PM", "Carprofen 75mg with PM feeding if limping", "Ball-obsessed; herds the other dogs."));
+  st.dogs.push(dog("Moose", "Great Dane", "128 lb", "Tom Hendricks", "918-555-0109", "Carol Hendricks", "918-555-0110", "Riverside Animal Clinic", addDays(T, 25), "", addDays(T, 80), "3 cups AM & PM, raised feeder", "", "Gentle giant; needs the XL run."));
+  st.dogs.push(dog("Pepper", "Dachshund", "14 lb", "Grace Liu", "918-555-0135", "Ken Liu", "918-555-0136", "Grand Lake Vet", addDays(T, 320), addDays(T, 240), addDays(T, 320), "½ cup AM & PM", "", "No stairs; carry, don't let her jump."));
+  var dB = st.dogs[0], dR = st.dogs[1], dL = st.dogs[2], dM = st.dogs[3], dP = st.dogs[4];
+  function bk(dogId, type, run, start, end, rate, status, paid, pkgId, pkgUnits, extras, notes){
+    return { id: uid() + start, dogId: dogId, type: type, run: run, start: start, end: end, rate: rate,
+             status: status, paid: paid, pkgId: pkgId || "", pkgUnitsUsed: pkgUnits || 0, extras: extras || [], notes: notes || "" };
+  }
+  var pkgLuna = { id: uid() + "pkgl", dogId: dL.id, kind: "nights", total: 10, price: 350, purchased: addDays(T, -20), notes: "Fall boarding bundle" };
+  var pkgPep = { id: uid() + "pkgp", dogId: dP.id, kind: "sessions", total: 5, price: 110, purchased: addDays(T, -15), notes: "Daycare 5-pack" };
+  st.packages.push(pkgLuna); st.packages.push(pkgPep);
+  st.bookings.push(bk(dB.id, "boarding", "Run 2", addDays(T, -1), addDays(T, 2), 40, "checked-in", 0, "", 0, [], "Weekend stay"));
+  st.bookings.push(bk(dL.id, "boarding", "Run 4", addDays(T, 3), addDays(T, 6), 40, "booked", 0, pkgLuna.id, 3, [], "Draws 3 of 10 package nights"));
+  st.bookings.push(bk(dM.id, "daycare", "Day yard", T, T, 25, "checked-in", 25, "", 0, [], ""));
+  st.bookings.push(bk(dP.id, "boarding", "Run 1", addDays(T, -6), addDays(T, -4), 40, "completed", 80, "", 0, [], ""));
+  st.bookings.push(bk(dR.id, "boarding", "Run 3", addDays(T, 5), addDays(T, 7), 40, "booked", 0, "", 0, [], "⚠ Rabies expired — must update cert before check-in"));
+  st.bookings.push(bk(dP.id, "daycare", "Day yard", addDays(T, -3), addDays(T, -3), 25, "completed", 0, pkgPep.id, 1, [], ""));
+  st.bookings.push(bk(dP.id, "daycare", "Day yard", addDays(T, -2), addDays(T, -2), 25, "completed", 0, pkgPep.id, 1, [], ""));
+  function lg(dogId, date, kind, text, done){ return { id: uid() + date + kind, dogId: dogId, date: date, kind: kind, text: text, done: !!done }; }
+  st.logs.push(lg(dB.id, T, "feeding", "AM feeding — 1½ cups, ate all", true));
+  st.logs.push(lg(dB.id, T, "note", "Yard time 30 min, played well", false));
+  st.logs.push(lg(dM.id, T, "feeding", "AM feeding — 3 cups, ate most", false));
+  return st;
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function load(){
+  var raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) {}
+  if (raw){ try { var p = JSON.parse(raw); if (p && p.settings && p.dogs) { S = sanitize(p); return; } } catch (e) {} }
+  S = seed(); save();
+}
+/* sanitize any state object (also used on import) — drops bad dates/orphans, clamps numbers */
+function sanitize(p){
+  var st = { settings: { biz: "KennelBook", phone: "", email: "", boardRate: 40, dayRate: 25, soonDays: 30 }, dogs: [], bookings: [], packages: [], logs: [], seeded: !!p.seeded };
+  if (p.settings){
+    st.settings.biz = String(p.settings.biz || "KennelBook");
+    st.settings.phone = String(p.settings.phone || ""); st.settings.email = String(p.settings.email || "");
+    st.settings.boardRate = Math.max(0, num(p.settings.boardRate, 40));
+    st.settings.dayRate = Math.max(0, num(p.settings.dayRate, 25));
+    st.settings.soonDays = Math.min(365, Math.max(1, Math.round(num(p.settings.soonDays, 30))));
+  }
+  function dstr(v){ return typeof v === "string" ? v : ""; }
+  function ddate(v){ return validISODate(v) ? v : ""; }
+  var dogIds = {};
+  (p.dogs || []).forEach(function(d){
+    if (!d || !d.name || !d.id) return;
+    var o = { id: String(d.id), name: String(d.name), breed: dstr(d.breed), size: dstr(d.size), ownerName: dstr(d.ownerName),
+      ownerPhone: dstr(d.ownerPhone), emergName: dstr(d.emergName), emergPhone: dstr(d.emergPhone), vet: dstr(d.vet),
+      rabiesExp: ddate(d.rabiesExp), bordExp: ddate(d.bordExp), distExp: ddate(d.distExp),
+      feeding: dstr(d.feeding), meds: dstr(d.meds), notes: dstr(d.notes) };
+    dogIds[o.id] = 1; st.dogs.push(o);
+  });
+  var pkgIds = {};
+  (p.packages || []).forEach(function(k){
+    if (!k || !k.id || !dogIds[k.dogId]) return;
+    var o = { id: String(k.id), dogId: k.dogId, kind: k.kind === "sessions" ? "sessions" : "nights",
+      total: Math.max(0, Math.round(num(k.total))), price: Math.max(0, num(k.price)),
+      purchased: ddate(k.purchased), notes: dstr(k.notes) };
+    pkgIds[o.id] = 1; st.packages.push(o);
+  });
+  (p.bookings || []).forEach(function(b){
+    if (!b || !b.id || !dogIds[b.dogId] || !validISODate(b.start) || !validISODate(b.end)) return;
+    var ex = [];
+    (b.extras || []).forEach(function(x){ if (x && x.label && num(x.amount) > 0) ex.push({ label: String(x.label), amount: num(x.amount) }); });
+    st.bookings.push({ id: String(b.id), dogId: b.dogId, type: b.type === "daycare" ? "daycare" : "boarding",
+      run: dstr(b.run), start: b.start, end: b.end, rate: Math.max(0, num(b.rate)),
+      status: ["booked", "checked-in", "completed", "cancelled"].indexOf(b.status) >= 0 ? b.status : "booked",
+      paid: Math.max(0, num(b.paid)), pkgId: pkgIds[b.pkgId] ? b.pkgId : "", pkgUnitsUsed: Math.max(0, num(b.pkgUnitsUsed)),
+      extras: ex, notes: dstr(b.notes) });
+  });
+  (p.logs || []).forEach(function(l){
+    if (!l || !l.id || !dogIds[l.dogId] || !validISODate(l.date)) return;
+    st.logs.push({ id: String(l.id), dogId: l.dogId, date: l.date,
+      kind: ["feeding", "medication", "note"].indexOf(l.kind) >= 0 ? l.kind : "note", text: dstr(l.text), done: !!l.done });
+  });
+  st.legal = sanitizeLegal(p.legal);
+  return st;
+}
+function dogById(id){ for (var i = 0; i < S.dogs.length; i++) if (S.dogs[i].id === id) return S.dogs[i]; return null; }
+function pkgById(id){ for (var i = 0; i < S.packages.length; i++) if (S.packages[i].id === id) return S.packages[i]; return null; }
+function bookingById(id){ for (var i = 0; i < S.bookings.length; i++) if (S.bookings[i].id === id) return S.bookings[i]; return null; }
+
+/* ================= UI ================= */
+function show(tab){
+  var tabs = ["dash", "dogs", "bookings", "packages", "care", "money", "help"];
+  for (var i = 0; i < tabs.length; i++) $("tab-" + tabs[i]).className = "tab" + (tabs[i] === tab ? " on" : "");
+  var btns = $("tabs").querySelectorAll ? $("tabs").querySelectorAll("button") : [];
+  for (var j = 0; j < btns.length; j++) btns[j].className = btns[j].getAttribute("data-tab") === tab ? "on" : "";
+  if (tab === "dash") renderDash(); if (tab === "dogs") renderDogs(); if (tab === "bookings") renderBookings();
+  if (tab === "packages") renderPackages(); if (tab === "care") renderCare(); if (tab === "money") renderMoney();
+  if (tab === "help") renderSettings();
+}
+function hide(id){ $(id).className = "card hidden"; }
+function unhide(id){ $(id).className = "card"; }
+function vaxPill(v){
+  if (v.status === "ok") return '<span class="pill ok">OK · ' + v.daysLeft + 'd</span>';
+  if (v.status === "soon") return '<span class="pill soon">' + (v.daysLeft === 0 ? "Expires today" : "Expires in " + v.daysLeft + "d") + '</span>';
+  if (v.status === "expired") return '<span class="pill expired">EXPIRED ' + Math.abs(v.daysLeft) + 'd ago</span>';
+  return '<span class="pill missing">NO RECORD</span>';
+}
+function vaxCell(dog){
+  var v = dogVax(dog, todayISO(), S.settings.soonDays), cells = [];
+  for (var i = 0; i < VAX_FIELDS.length; i++){
+    var f = VAX_FIELDS[i][0];
+    cells.push(VAX_FIELDS[i][1] + ": " + vaxPill(v[f]));
+  }
+  var s = cells.join(" · ");
+  if (!v.canBoard) s += ' <span class="flag">⛔ CANNOT BOARD (rabies)</span>';
+  return s;
+}
+
+function renderDash(){
+  var T = todayISO(), inH = inHouseOn(T);
+  var arrivals = S.bookings.filter(function(b){ return b.start === T && b.status !== "cancelled" && b.status !== "completed"; }).length;
+  var departures = S.bookings.filter(function(b){ return b.end === T && b.type === "boarding" && b.status !== "cancelled" && b.status !== "completed"; }).length;
+  var mt = moneyTotals();
+  $("dashStats").innerHTML =
+    '<div class="stat">In kennel today<b>' + inH.length + '</b></div>' +
+    '<div class="stat">Arrivals today<b>' + arrivals + '</b></div>' +
+    '<div class="stat">Departures today<b>' + departures + '</b></div>' +
+    '<div class="stat">Still owed<b>' + money(mt.owed) + '</b></div>';
+  if (!inH.length) $("dashInHouse").innerHTML = '<p class="muted">No dogs in the kennel today.</p>';
+  else $("dashInHouse").innerHTML = "<table><tr><th>Dog</th><th>Owner</th><th>Type</th><th>Run</th><th>Out</th><th>Status</th></tr>" +
+    inH.map(function(b){ var d = dogById(b.dogId) || { name: "?", ownerName: "" };
+      return "<tr><td><b>" + esc(d.name) + "</b></td><td>" + esc(d.ownerName) + "</td><td>" + b.type + "</td><td>" + esc(b.run || "—") + "</td><td>" + prettyDate(b.end) + "</td><td>" + esc(b.status) + "</td></tr>"; }).join("") + "</table>";
+  var alerts = [];
+  S.dogs.forEach(function(d){ var v = dogVax(d, T, S.settings.soonDays);
+    for (var i = 0; i < VAX_FIELDS.length; i++){ var f = VAX_FIELDS[i][0];
+      if (v[f].status !== "ok") alerts.push("<tr><td><b>" + esc(d.name) + "</b></td><td>" + VAX_FIELDS[i][1] + "</td><td>" + vaxPill(v[f]) + "</td><td>" + (validISODate(d[f]) ? prettyDate(d[f]) : "—") + "</td></tr>"); } });
+  $("dashVax").innerHTML = alerts.length ? "<table><tr><th>Dog</th><th>Vaccine</th><th>Status</th><th>Expiry</th></tr>" + alerts.join("") + "</table>"
+    : '<p class="muted">Every dog\'s vaccinations are current. 🎉</p>';
+  var owed = S.bookings.filter(function(b){ return bookingDue(b) > 0; }).sort(function(a, b){ return bookingDue(b) - bookingDue(a); });
+  $("dashOwed").innerHTML = owed.length ? "<table><tr><th>Dog</th><th>Owner</th><th>Stay</th><th>Due</th></tr>" +
+    owed.map(function(b){ var d = dogById(b.dogId) || { name: "?", ownerName: "" };
+      return "<tr><td><b>" + esc(d.name) + "</b></td><td>" + esc(d.ownerName) + "</td><td>" + prettyDate(b.start) + " → " + prettyDate(b.end) + "</td><td><b>" + money(bookingDue(b)) + "</b></td></tr>"; }).join("") + "</table>"
+    : '<p class="muted">Nobody owes anything. 🎉</p>';
+}
+
+function renderDogs(){
+  var q = ($("dogSearch").value || "").toLowerCase();
+  var list = S.dogs.filter(function(d){ return !q || (d.name + " " + d.breed + " " + d.ownerName).toLowerCase().indexOf(q) >= 0; });
+  if (!list.length) { $("dogList").innerHTML = '<p class="muted">No dogs match.</p>'; return; }
+  $("dogList").innerHTML = list.map(function(d){
+    return '<div style="border-bottom:1px solid var(--line);padding:9px 0"><b style="font-size:16px">' + esc(d.name) + '</b> <span class="muted">' + esc(d.breed) + (d.size ? " · " + esc(d.size) : "") + '</span><br>' +
+      'Owner: ' + esc(d.ownerName) + (d.ownerPhone ? " · " + esc(d.ownerPhone) : "") +
+      (d.emergName ? '<br>Emergency: ' + esc(d.emergName) + (d.emergPhone ? " · " + esc(d.emergPhone) : "") : "") +
+      '<br>' + vaxCell(d) +
+      (d.feeding ? '<br><span class="muted">🍽 ' + esc(d.feeding) + '</span>' : "") +
+      (d.meds ? '<br><span class="muted">💊 ' + esc(d.meds) + '</span>' : "") +
+      '<br><button class="btn small" onclick="KB.dogForm(\'' + d.id + '\')">Edit</button>' +
+      '<button class="btn small alt" onclick="KB.bookingForm(null,\'' + d.id + '\')">+ Booking</button>' +
+      '<button class="btn small danger" onclick="KB.deleteDog(\'' + d.id + '\')">Delete</button></div>';
+  }).join("");
+}
+function dogForm(id){
+  var d = id ? dogById(id) : null;
+  $("dogFormTitle").textContent = d ? "Edit " + d.name : "Add a dog";
+  $("df_id").value = d ? d.id : "";
+  var F = { name: "df_name", breed: "df_breed", size: "df_size", ownerName: "df_owner", ownerPhone: "df_phone", emergName: "df_emergName", emergPhone: "df_emergPhone", vet: "df_vet", rabiesExp: "df_rabies", bordExp: "df_bord", distExp: "df_dist", feeding: "df_feeding", meds: "df_meds", notes: "df_notes" };
+  for (var k in F) $(F[k]).value = d ? (d[k] || "") : "";
+  unhide("dogFormCard");
+}
+function saveDog(){
+  var name = $("df_name").value.trim(), owner = $("df_owner").value.trim();
+  if (!name || !owner) { alert("Dog's name and owner name are required."); return; }
+  var id = $("df_id").value;
+  var d = id ? dogById(id) : { id: uid() };
+  d.name = name; d.breed = $("df_breed").value.trim(); d.size = $("df_size").value.trim();
+  d.ownerName = owner; d.ownerPhone = $("df_phone").value.trim();
+  d.emergName = $("df_emergName").value.trim(); d.emergPhone = $("df_emergPhone").value.trim();
+  d.vet = $("df_vet").value.trim();
+  d.rabiesExp = validISODate($("df_rabies").value) ? $("df_rabies").value : "";
+  d.bordExp = validISODate($("df_bord").value) ? $("df_bord").value : "";
+  d.distExp = validISODate($("df_dist").value) ? $("df_dist").value : "";
+  d.feeding = $("df_feeding").value.trim(); d.meds = $("df_meds").value.trim(); d.notes = $("df_notes").value.trim();
+  if (!id) S.dogs.push(d);
+  save(); hide("dogFormCard"); renderDogs();
+}
+function deleteDog(id){
+  var d = dogById(id); if (!d) return;
+  if (!confirm("Delete " + d.name + " and all their bookings, packages, and care entries? This cannot be undone.")) return;
+  S.dogs = S.dogs.filter(function(x){ return x.id !== id; });
+  S.bookings = S.bookings.filter(function(x){ return x.dogId !== id; });
+  S.packages = S.packages.filter(function(x){ return x.dogId !== id; });
+  S.logs = S.logs.filter(function(x){ return x.dogId !== id; });
+  save(); renderDogs();
+}
+
+function fillDogSelect(el, sel){
+  el.innerHTML = S.dogs.map(function(d){ return '<option value="' + d.id + '"' + (d.id === sel ? " selected" : "") + ">" + esc(d.name) + " (" + esc(d.ownerName) + ")</option>"; }).join("");
+}
+function fillPkgSelect(dogId, sel){
+  var kind = $("bf_type").value === "daycare" ? "sessions" : "nights";
+  var opts = ['<option value="">— none —</option>'];
+  S.packages.filter(function(k){ return k.dogId === dogId && k.kind === kind; }).forEach(function(k){
+    opts.push('<option value="' + k.id + '"' + (k.id === sel ? " selected" : "") + ">" + k.total + " " + k.kind + " — " + pkgRemaining(k) + " left</option>");
+  });
+  $("bf_pkg").innerHTML = opts.join("");
+}
+function bookingForm(id, dogId){
+  var b = id ? bookingById(id) : null;
+  $("bkFormTitle").textContent = b ? "Edit booking" : "New booking";
+  $("bf_id").value = b ? b.id : "";
+  fillDogSelect($("bf_dog"), b ? b.dogId : (dogId || (S.dogs[0] && S.dogs[0].id)));
+  $("bf_dog").value = b ? b.dogId : (dogId || (S.dogs[0] && S.dogs[0].id) || "");
+  $("bf_type").value = b ? b.type : "boarding";
+  $("bf_run").value = b ? b.run : "";
+  $("bf_start").value = b ? b.start : todayISO();
+  $("bf_end").value = b ? b.end : addDays(todayISO(), 2);
+  $("bf_rate").value = b ? b.rate : $("bf_type").value === "daycare" ? S.settings.dayRate : S.settings.boardRate;
+  if (b) $("bf_rate").value = b.rate;
+  $("bf_status").value = b ? b.status : "booked";
+  $("bf_paid").value = b ? b.paid : 0;
+  $("bf_extras").value = b ? b.extras.map(function(x){ return x.label + ", " + x.amount; }).join("\n") : "";
+  $("bf_notes").value = b ? b.notes : "";
+  fillPkgSelect($("bf_dog").value, b ? b.pkgId : "");
+  warnCheck();
+  unhide("bookingFormCard");
+}
+function warnCheck(){
+  var d = dogById($("bf_dog").value);
+  if (!d) { $("bf_warn").textContent = ""; return; }
+  var v = dogVax(d, todayISO(), S.settings.soonDays);
+  $("bf_warn").textContent = v.canBoard ? "" : "⛔ " + d.name + "'s rabies vaccination is " + (v.rabiesExp.status === "missing" ? "not on file" : "EXPIRED") + " — most kennels cannot legally board this dog until it's current.";
+}
+function parseExtras(text){
+  var out = [];
+  (text || "").split("\n").forEach(function(line){
+    var i = line.lastIndexOf(","); if (i < 0) return;
+    var label = line.slice(0, i).trim(), amt = num(line.slice(i + 1).replace("$", ""));
+    if (label && amt > 0) out.push({ label: label, amount: amt });
+  });
+  return out;
+}
+function saveBooking(){
+  var dogId = $("bf_dog").value, start = $("bf_start").value, end = $("bf_end").value;
+  if (!dogById(dogId)) { alert("Pick a dog first."); return; }
+  if (!validISODate(start) || !validISODate(end)) { alert("Both dates are required."); return; }
+  if (end < start) { alert("Check-out is before check-in."); return; }
+  var id = $("bf_id").value;
+  var b = id ? bookingById(id) : { id: uid(), pkgUnitsUsed: 0 };
+  b.dogId = dogId; b.type = $("bf_type").value; b.run = $("bf_run").value.trim();
+  b.start = start; b.end = end; b.rate = Math.max(0, num($("bf_rate").value));
+  b.status = $("bf_status").value; b.paid = Math.max(0, num($("bf_paid").value));
+  b.extras = parseExtras($("bf_extras").value); b.notes = $("bf_notes").value.trim();
+  b.pkgId = $("bf_pkg").value || "";
+  if (b.pkgId){
+    var pkg = pkgById(b.pkgId);
+    b.pkgUnitsUsed = pkg ? Math.min(bookingUnits(b), pkgRemaining(pkg, b.id)) : 0;
+  } else b.pkgUnitsUsed = 0;
+  if (!id) S.bookings.push(b);
+  save(); hide("bookingFormCard"); renderBookings();
+}
+function renderBookings(){
+  var f = $("bkFilter").value, T = todayISO();
+  var list = S.bookings.slice().sort(function(a, b){ return a.start < b.start ? -1 : 1; }).filter(function(b){
+    if (f === "all") return true;
+    if (f === "completed") return b.status === "completed";
+    if (f === "cancelled") return b.status === "cancelled";
+    return b.status !== "completed" && b.status !== "cancelled" && b.end >= addDays(T, -1);
+  });
+  if (!list.length) { $("bookingList").innerHTML = '<p class="muted">No bookings in this view.</p>'; return; }
+  $("bookingList").innerHTML = "<table><tr><th>Dog</th><th>Dates</th><th>Type</th><th>Units</th><th>Total</th><th>Due</th><th>Status</th><th></th></tr>" +
+    list.map(function(b){ var d = dogById(b.dogId) || { name: "?" }; var v = dogById(b.dogId) ? dogVax(dogById(b.dogId), T, S.settings.soonDays) : { canBoard: true };
+      return "<tr><td><b>" + esc(d.name) + "</b>" + (v.canBoard ? "" : ' <span class="flag">⛔ rabies</span>') + "</td><td>" + prettyDate(b.start) + " → " + prettyDate(b.end) + "</td><td>" + b.type + (b.run ? " · " + esc(b.run) : "") + "</td><td>" + bookingUnits(b) + "</td><td>" + money(bookingGross(b)) + "</td><td>" + (bookingDue(b) > 0 ? "<b>" + money(bookingDue(b)) + "</b>" : "—") + "</td><td>" + esc(b.status) + "</td>" +
+      '<td><button class="btn small" onclick="KB.bookingForm(\'' + b.id + '\')">Edit</button> <button class="btn small alt" onclick="KB.printSettlement(\'' + b.id + '\')">Statement</button></td></tr>'; }).join("") + "</table>";
+}
+function renderPackages(){
+  if (!S.packages.length) { $("packageList").innerHTML = '<p class="muted">No packages sold yet.</p>'; return; }
+  $("packageList").innerHTML = "<table><tr><th>Dog</th><th>Package</th><th>Price</th><th>Used</th><th>Left</th><th>Purchased</th><th></th></tr>" +
+    S.packages.map(function(k){ var d = dogById(k.dogId) || { name: "?" }; var used = pkgUsed(k.id);
+      return "<tr><td><b>" + esc(d.name) + "</b></td><td>" + k.total + " " + k.kind + "</td><td>" + money(k.price) + "</td><td>" + used + "</td><td><b>" + (k.total - used) + "</b></td><td>" + prettyDate(k.purchased) + "</td>" +
+      '<td><button class="btn small" onclick="KB.packageForm(\'' + k.id + '\')">Edit</button> <button class="btn small danger" onclick="KB.deletePackage(\'' + k.id + '\')">Delete</button></td></tr>'; }).join("") + "</table>";
+}
+function packageForm(id){
+  var k = id ? pkgById(id) : null;
+  $("pkgFormTitle").textContent = k ? "Edit package" : "Sell a package";
+  $("pf_id").value = k ? k.id : "";
+  fillDogSelect($("pf_dog"), k ? k.dogId : (S.dogs[0] && S.dogs[0].id));
+  $("pf_dog").value = k ? k.dogId : ((S.dogs[0] && S.dogs[0].id) || "");
+  $("pf_kind").value = k ? k.kind : "nights";
+  $("pf_total").value = k ? k.total : 10;
+  $("pf_price").value = k ? k.price : "";
+  $("pf_date").value = k ? k.purchased : todayISO();
+  $("pf_notes").value = k ? k.notes : "";
+  unhide("packageFormCard");
+}
+function savePackage(){
+  var dogId = $("pf_dog").value, total = Math.round(num($("pf_total").value));
+  if (!dogById(dogId)) { alert("Pick a dog first."); return; }
+  if (!(total > 0)) { alert("Package size must be at least 1."); return; }
+  var id = $("pf_id").value;
+  var k = id ? pkgById(id) : { id: uid() };
+  k.dogId = dogId; k.kind = $("pf_kind").value; k.total = total;
+  k.price = Math.max(0, num($("pf_price").value));
+  k.purchased = validISODate($("pf_date").value) ? $("pf_date").value : todayISO();
+  k.notes = $("pf_notes").value.trim();
+  if (!id) S.packages.push(k);
+  save(); hide("packageFormCard"); renderPackages();
+}
+function deletePackage(id){
+  if (!confirm("Delete this package? Bookings linked to it keep their recorded credit.")) return;
+  S.packages = S.packages.filter(function(x){ return x.id !== id; });
+  save(); renderPackages();
+}
+
+function renderCare(){
+  var date = validISODate($("careDate").value) ? $("careDate").value : todayISO();
+  $("careDate").value = date;
+  fillDogSelect($("cf_dog"), $("cf_dog").value || (S.dogs[0] && S.dogs[0].id));
+  var inH = inHouseOn(date);
+  var html = "";
+  if (!inH.length) html += '<p class="muted">No dogs in the kennel on this date.</p>';
+  inH.forEach(function(b){ var d = dogById(b.dogId); if (!d) return;
+    html += '<div style="border-bottom:1px solid var(--line);padding:8px 0"><b>' + esc(d.name) + '</b> <span class="muted">(' + b.type + (b.run ? " · " + esc(b.run) : "") + ")</span>" +
+      (d.feeding ? '<br>🍽 ' + esc(d.feeding) : "") + (d.meds ? '<br>💊 ' + esc(d.meds) : "");
+    var entries = S.logs.filter(function(l){ return l.dogId === d.id && l.date === date; });
+    entries.forEach(function(l){
+      html += '<div class="chk"><input type="checkbox"' + (l.done ? " checked" : "") + ' onclick="KB.toggleLog(\'' + l.id + '\')"><span>' + (l.kind === "feeding" ? "🍽" : l.kind === "medication" ? "💊" : "📝") + " " + esc(l.text) + "</span></div>";
+    });
+    html += "</div>";
+  });
+  var others = S.logs.filter(function(l){ return l.date === date && !inH.some(function(b){ return b.dogId === l.dogId; }); });
+  if (others.length){
+    html += '<h3>Other entries this date</h3>' + others.map(function(l){ var d = dogById(l.dogId) || { name: "?" };
+      return '<div class="chk"><input type="checkbox"' + (l.done ? " checked" : "") + ' onclick="KB.toggleLog(\'' + l.id + '\')"><span><b>' + esc(d.name) + "</b> — " + esc(l.text) + "</span></div>"; }).join("");
+  }
+  $("careList").innerHTML = html;
+}
+function saveLog(){
+  var dogId = $("cf_dog").value;
+  if (!dogById(dogId)) { alert("Pick a dog first."); return; }
+  var text = $("cf_text").value.trim(); if (!text) { alert("Write what was done."); return; }
+  var date = validISODate($("careDate").value) ? $("careDate").value : todayISO();
+  S.logs.push({ id: uid(), dogId: dogId, date: date, kind: $("cf_kind").value, text: text, done: true });
+  $("cf_text").value = "";
+  save(); renderCare();
+}
+function toggleLog(id){
+  for (var i = 0; i < S.logs.length; i++) if (S.logs[i].id === id) S.logs[i].done = !S.logs[i].done;
+  save();
+}
+function renderMoney(){
+  var mt = moneyTotals();
+  $("moneyStats").innerHTML =
+    '<div class="stat">Bookings billed<b>' + money(mt.gross) + '</b></div>' +
+    '<div class="stat">Collected on bookings<b>' + money(mt.collected) + '</b></div>' +
+    '<div class="stat">Package sales<b>' + money(mt.pkgRevenue) + '</b></div>' +
+    '<div class="stat">Package credit used<b>' + money(mt.pkgCreditGiven) + '</b></div>' +
+    '<div class="stat">Still owed<b>' + money(mt.owed) + '</b></div>';
+  var owed = S.bookings.filter(function(b){ return bookingDue(b) > 0; });
+  $("moneyDetail").innerHTML = owed.length ? '<h3>Who owes what</h3>' + owed.map(function(b){ var d = dogById(b.dogId) || { name: "?", ownerName: "" };
+    return '<div style="padding:5px 0;border-bottom:1px solid var(--line)"><b>' + esc(d.name) + '</b> (' + esc(d.ownerName) + ") — " + prettyDate(b.start) + " → " + prettyDate(b.end) + " — <b>" + money(bookingDue(b)) + '</b> <button class="btn small alt" onclick="KB.printSettlement(\'' + b.id + '\')">Statement</button></div>'; }).join("")
+    : '<p class="muted">No outstanding balances.</p>';
+}
+function renderSettings(){
+  $("bizName").textContent = S.settings.biz || "KennelBook";
+  $("st_biz").value = S.settings.biz; $("st_phone").value = S.settings.phone; $("st_email").value = S.settings.email;
+  $("st_boardRate").value = S.settings.boardRate; $("st_dayRate").value = S.settings.dayRate; $("st_soonDays").value = S.settings.soonDays;
+}
+function saveSettings(){
+  S.settings.biz = $("st_biz").value.trim() || "KennelBook";
+  S.settings.phone = $("st_phone").value.trim(); S.settings.email = $("st_email").value.trim();
+  S.settings.boardRate = Math.max(0, num($("st_boardRate").value, 40));
+  S.settings.dayRate = Math.max(0, num($("st_dayRate").value, 25));
+  S.settings.soonDays = Math.min(365, Math.max(1, Math.round(num($("st_soonDays").value, 30))));
+  save(); renderSettings(); alert("Settings saved.");
+}
+
+/* ---------- print ---------- */
+function printDoc(title, bodyHTML){
+  var w = window.open("", "_blank");
+  var doc = "<!DOCTYPE html><html><head><title>" + esc(title) + "</title><style>body{font-family:Georgia,serif;color:#222;padding:24px;max-width:720px;margin:0 auto}table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid #ccc;text-align:left}h1{font-size:20px}h2{font-size:15px}.r{text-align:right}.muted{color:#666;font-size:12px}</style></head><body>" + bodyHTML + "</body></html>";
+  if (w && w.document) { w.document.write(doc); w.document.close(); w.focus(); if (w.print) w.print(); return true; }
+  return false;
+}
+function bizHead(){
+  return "<h1>" + esc(S.settings.biz) + "</h1>" + (S.settings.phone || S.settings.email ? '<p class="muted">' + esc(S.settings.phone) + (S.settings.phone && S.settings.email ? " · " : "") + esc(S.settings.email) + "</p>" : "");
+}
+function printSettlement(id){
+  var b = bookingById(id); if (!b) return;
+  var d = dogById(b.dogId) || { name: "?", ownerName: "" };
+  var s = settlement(b);
+  var rows = "<tr><td>" + (b.type === "boarding" ? "Boarding" : "Daycare") + " — " + s.units + " × " + money(s.rate) + "</td><td class='r'>" + money(s.units * s.rate) + "</td></tr>";
+  b.extras.forEach(function(x){ rows += "<tr><td>" + esc(x.label) + "</td><td class='r'>" + money(x.amount) + "</td></tr>"; });
+  if (s.pkgCredit > 0) rows += "<tr><td>Package credit (" + s.pkgUnits + " units prepaid)</td><td class='r'>−" + money(s.pkgCredit) + "</td></tr>";
+  if (s.paid > 0) rows += "<tr><td>Payments received</td><td class='r'>−" + money(s.paid) + "</td></tr>";
+  rows += "<tr><td><b>Balance due</b></td><td class='r'><b>" + money(s.due) + "</b></td></tr>";
+  printDoc("Settlement — " + d.name, bizHead() + "<h2>Pickup settlement — " + esc(d.name) + "</h2>" +
+    "<p>Owner: " + esc(d.ownerName) + "<br>Stay: " + prettyDate(b.start) + " → " + prettyDate(b.end) + (b.run ? "<br>Run: " + esc(b.run) : "") + "</p>" +
+    "<table>" + rows + "</table><p class='muted'>Thank you for boarding with us.</p>");
+}
+function printVaxReport(){
+  var T = todayISO();
+  var rows = S.dogs.map(function(d){ var v = dogVax(d, T, S.settings.soonDays);
+    function cell(f){ var s = v[f]; if (s.status === "missing") return "NO RECORD"; return prettyDate(d[f]) + (s.status === "expired" ? " (EXPIRED)" : s.status === "soon" ? " (expiring)" : ""); }
+    return "<tr><td>" + esc(d.name) + "</td><td>" + esc(d.ownerName) + "</td><td>" + cell("rabiesExp") + "</td><td>" + cell("bordExp") + "</td><td>" + cell("distExp") + "</td><td>" + (v.canBoard ? "OK" : "CANNOT BOARD") + "</td></tr>"; }).join("");
+  printDoc("Vaccination report", bizHead() + "<h2>Vaccination status — " + prettyDate(T) + "</h2><table><tr><th>Dog</th><th>Owner</th><th>Rabies</th><th>Bordetella</th><th>Distemper</th><th>Boarding</th></tr>" + rows + "</table>");
+}
+function printCareSheet(){
+  var date = validISODate($("careDate").value) ? $("careDate").value : todayISO();
+  var inH = inHouseOn(date);
+  var body = bizHead() + "<h2>Care sheet — " + prettyDate(date) + "</h2>";
+  if (!inH.length) body += "<p>No dogs in the kennel this date.</p>";
+  inH.forEach(function(b){ var d = dogById(b.dogId); if (!d) return;
+    body += "<h2>" + esc(d.name) + " <span class='muted'>(" + esc(b.run || b.type) + ")</span></h2>" +
+      (d.feeding ? "<p>🍽 Feeding: " + esc(d.feeding) + "</p>" : "") + (d.meds ? "<p>💊 Meds: " + esc(d.meds) + "</p>" : "") +
+      (d.notes ? "<p>Notes: " + esc(d.notes) + "</p>" : "");
+    var entries = S.logs.filter(function(l){ return l.dogId === d.id && l.date === date; });
+    if (entries.length) body += "<table>" + entries.map(function(l){ return "<tr><td>" + (l.done ? "☑" : "☐") + "</td><td>" + esc(l.kind) + "</td><td>" + esc(l.text) + "</td></tr>"; }).join("") + "</table>";
+  });
+  printDoc("Care sheet", body);
+}
+function printMoney(){
+  var mt = moneyTotals();
+  printDoc("Money summary", bizHead() + "<h2>Money summary — " + prettyDate(todayISO()) + "</h2><table>" +
+    "<tr><td>Bookings billed</td><td class='r'>" + money(mt.gross) + "</td></tr>" +
+    "<tr><td>Collected on bookings</td><td class='r'>" + money(mt.collected) + "</td></tr>" +
+    "<tr><td>Package sales</td><td class='r'>" + money(mt.pkgRevenue) + "</td></tr>" +
+    "<tr><td>Package credit used</td><td class='r'>" + money(mt.pkgCreditGiven) + "</td></tr>" +
+    "<tr><td><b>Still owed</b></td><td class='r'><b>" + money(mt.owed) + "</b></td></tr></table>");
+}
+
+/* ---------- backup ---------- */
+function exportData(){
+  var blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "kennelbook-backup.json"; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 500);
+}
+function importData(input){
+  var f = input.files && input.files[0]; if (!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try {
+      var p = JSON.parse(r.result);
+      if (!p || !p.settings) { alert("That file doesn't look like a KennelBook backup."); return; }
+      S = sanitize(p); save(); renderSettings(); renderDash(); show("dash");
+      alert("Backup imported — " + S.dogs.length + " dogs, " + S.bookings.length + " bookings.");
+    } catch (e) { alert("Couldn't read that file — it isn't valid backup JSON."); }
+  };
+  r.readAsText(f);
+}
+function clearDemo(){
+  if (!confirm("Clear the sample dogs, bookings, packages, and care entries? Your settings stay.")) return;
+  S.dogs = []; S.bookings = []; S.packages = []; S.logs = []; S.seeded = false;
+  save(); renderDogs(); show("dogs");
+}
+function eraseAll(){
+  if (!confirm("Erase EVERYTHING, including settings? This cannot be undone.")) return;
+  S = { settings: { biz: "KennelBook", phone: "", email: "", boardRate: 40, dayRate: 25, soonDays: 30 }, dogs: [], bookings: [], packages: [], logs: [], seeded: false };
+  save(); renderSettings(); show("help");
+}
+
+/* ---------- init + exports ---------- */
+load();
+$("bizName").textContent = S.settings.biz || "KennelBook";
+$("careDate").value = todayISO();
+var bfDogEl = $("bf_dog"), bfTypeEl = $("bf_type");
+if (bfDogEl && bfDogEl.addEventListener) bfDogEl.addEventListener("change", function(){ fillPkgSelect(bfDogEl.value, ""); warnCheck(); });
+if (bfTypeEl && bfTypeEl.addEventListener) bfTypeEl.addEventListener("change", function(){ fillPkgSelect(bfDogEl.value, ""); });
+renderDash();
+
+var KB = { show: show, hide: hide, renderDogs: renderDogs, dogForm: dogForm, saveDog: saveDog, deleteDog: deleteDog,
+  renderBookings: renderBookings, bookingForm: bookingForm, saveBooking: saveBooking,
+  renderPackages: renderPackages, packageForm: packageForm, savePackage: savePackage, deletePackage: deletePackage,
+  renderCare: renderCare, saveLog: saveLog, toggleLog: toggleLog, renderMoney: renderMoney,
+  saveSettings: saveSettings, printSettlement: printSettlement, printVaxReport: printVaxReport,
+  printCareSheet: printCareSheet, printMoney: printMoney, exportData: exportData, importData: importData,
+  clearDemo: clearDemo, eraseAll: eraseAll,
+  /* testable core */
+  esc: esc, money: money, num: num, todayISO: todayISO, validISODate: validISODate, addDays: addDays,
+  daysBetween: daysBetween, vaxStatus: vaxStatus, dogVax: dogVax, bookingUnits: bookingUnits,
+  extrasTotal: extrasTotal, bookingGross: bookingGross, pkgUsed: pkgUsed, pkgRemaining: pkgRemaining,
+  pkgCredit: pkgCredit, bookingDue: bookingDue, settlement: settlement, moneyTotals: moneyTotals,
+  inHouseOn: inHouseOn, sanitize: sanitize, parseExtras: parseExtras,
+  getState: function(){ return S; }, setState: function(s){ S = s; } };
+if (typeof window !== "undefined") window.KB = KB;
+
+/* ================= Legal — Terms of Use acceptance (catalog pattern v1.0) ================= */
+var TERMS_VERSION = "1.0";
+var LEGAL_APP_NAME = "KennelBook";
+var LEGAL_HAS_DISCLAIMER = true;
+var LEGAL_TERMS_HTML = "<h3>Terms of Use \u2014 White Wolf Digital Apps</h3><p><b>Version 1.0 (DRAFT \u2014 pending attorney review)</b></p><p><b>Seller: White Wolf Tree Service LLC, selling digital products under the name \"White Wolf Digital\"</b></p><p><b>Contact: whitewolfoklahoma@gmail.com</b></p><h4>1. What you're buying</h4><p>Our apps (including ForgeFit AI, ForgeKitchen, TreeBid Pro, SnowBid,</p><p>WashPrice Pro, RoofSquares, JobProfit Tracker, PastureLedger, and the other</p><p>titles sold under White Wolf Digital) are single-file software tools. When</p><p>you buy one, you are buying a <b>license to use the file</b>, not ownership of</p><p>the software itself.</p><h4>2. Your license</h4><ul><li>You may use the app for your own personal or business work.</li><li>You may open it on your own devices (phone, tablet, computer) and move your</li></ul><p>  own data between them using the app's built-in backup/export tools.</p><ul><li>You may <b>not</b> resell, redistribute, give away, upload, or share the app</li></ul><p>  file (or a copy of it) with anyone else \u2014 including posting it online,</p><p>  bundling it with other products, or selling access to it.</p><ul><li>You may <b>not</b> claim the app as your own work, remove its branding or</li></ul><p>  notices, or use it to build a competing product for resale.</p><ul><li>One purchase = one buyer. A business purchase covers the buyer and their</li></ul><p>  own employees using it for that business's work; it does not cover other</p><p>  businesses.</p><h4>3. Your data stays yours \u2014 and stays on your device</h4><ul><li>The current versions of our apps run <b>entirely on your device</b>. They have</li></ul><p>  no accounts, no sign-in, no analytics, and they collect, transmit, and store</p><p>  <b>none</b> of your information on any server. We never see your data.</p><ul><li>Your records are stored in your browser/app storage on your device. **You</li></ul><p>  are responsible for backing them up** using the app's export tools. If you</p><p>  clear your browser data, lose your device, or uninstall the app, your</p><p>  records may be permanently lost, and we cannot recover them \u2014 we never had</p><p>  a copy.</p><ul><li>Files you export (backups, quotes, PDFs) are under your control. Where you</li></ul><p>  store or send them is up to you.</p><h4>4. Estimates are tools, not guarantees</h4><p>Every number our apps produce \u2014 bids, prices, costs, calorie targets,</p><p>projections, schedules, totals \u2014 is an **estimate generated from the</p><p>information you enter and the settings you choose**. Outputs are aids for</p><p>your own judgment, not guarantees of price, profit, outcome, or result. You</p><p>are responsible for checking any output before relying on it (see also the</p><p>disclaimer that applies to your app: Health Disclaimer for fitness/nutrition</p><p>apps, Estimator Disclaimer for contractor tools). If an input is wrong, the</p><p>output will be wrong.</p><h4>5. Acceptable use</h4><p>Don't use the apps to break the law, infringe anyone's rights, or</p><p>misrepresent quotes, invoices, or records to your own customers. For the</p><p>fitness apps, the guardrails in the app (healthy-rate limits, calorie floor)</p><p>are part of the product \u2014 don't treat the app as a way around them.</p><h4>6. Provided \"as is\"</h4><p>The apps are provided **\"as is\" and \"as available,\" without warranties of</p><p>any kind**, express or implied \u2014 including merchantability, fitness for a</p><p>particular purpose, accuracy of calculations, and uninterrupted or</p><p>error-free operation \u2014 to the maximum extent allowed by law. Software has</p><p>bugs; browsers change; we work to fix problems but do not promise any app is</p><p>error-free or will work on every device or browser forever.</p><h4>7. Limitation of liability</h4><p>To the maximum extent allowed by law:</p><ul><li>We are **not liable for indirect, incidental, special, or consequential</li></ul><p>  damages** \u2014 including lost profits, lost or mispriced jobs, lost data, or</p><p>  business interruption \u2014 arising from use of the apps.</p><ul><li>Our total liability for any claim connected to an app is limited to the</li></ul><p>  <b>amount you paid for that app</b>.</p><ul><li>Nothing in these terms limits liability that cannot legally be limited.</li></ul><h4>8. Refunds</h4><p>Refunds are handled **by the storefront you bought from, under that</p><p>storefront's policy** \u2014 Gumroad's refund policy for Gumroad purchases, and</p><p>Google Play's refund policy for Play purchases. These terms do not add to,</p><p>replace, or override the storefront's refund rules. If a file is defective</p><p>and won't open, contact us at whitewolfoklahoma@gmail.com and we'll fix or</p><p>replace the file.</p><h4>9. Updates and changes to these terms</h4><ul><li>We may release updated versions of an app. Updates may add, change, or</li></ul><p>  remove features.</p><ul><li>We may update these terms. The version you agreed to is recorded in the</li></ul><p>  app (version number and date) at first-run acceptance. If terms change,</p><p>  the app may ask you to accept the new version once on next open. Updated</p><p>  terms apply going forward, not retroactively.</p><ul><li>If you don't agree to an updated version of the terms, stop using the app.</li></ul><h4>10. Governing law</h4><p>These terms are governed by the laws of the <b>State of Oklahoma</b>, USA.</p><p>(Attorney to confirm governing law and venue before publication.)</p><h4>11. Contact</h4><p>White Wolf Tree Service LLC (White Wolf Digital) \u2014</p><p>whitewolfoklahoma@gmail.com.</p><h4>CONNECTED FEATURES \u2014 takes effect only when these features ship</h4><p>*The sections below apply only to future connected features (device sync via</p><p>Health Connect, AI voice logging, and the AI Goal Preview in ForgeFit). They</p><p>do not apply to the current offline versions, which never transmit data.*</p><ul><li><b>Opt-in only.</b> Connected features are off by default. Each one asks for</li></ul><p>  your separate, explicit consent \u2014 on its own consent screen, in plain</p><p>  language \u2014 before anything leaves your device. Declining never disables</p><p>  the app's offline features.</p><ul><li><b>What gets sent.</b> Only what the consent screen names, only when you use</li></ul><p>  the feature: for example, a meal description (text, or audio only if cloud</p><p>  transcription is on) for AI voice logging, or the single photo you choose</p><p>  for an AI Goal Preview.</p><ul><li><b>No retention by us.</b> Our relay service passes your request to the named</li></ul><p>  AI provider and keeps nothing \u2014 no copies of your photos, audio,</p><p>  transcripts, or entries are stored on our servers. Provider handling is</p><p>  described on the consent screen and in the Privacy Policy.</p><ul><li><b>Health data stays on the device.</b> Device sync (Health Connect) reads</li></ul><p>  your health data on your phone and stores it in the app on your phone. It</p><p>  is not uploaded to us.</p><ul><li><b>Allowances.</b> Some connected features run on third-party AI services we</li></ul><p>  pay for per use, so they may include a monthly allowance described in the</p><p>  app (for example, a set number of AI previews or voice entries per month),</p><p>  with optional additional credits. Allowances and pricing will be shown in</p><p>  the app before you use the feature; they are not a subscription unless the</p><p>  app says so in plain words.</p><ul><li><b>Permissions.</b> Connected features may request device permissions (such</li></ul><p>  as Health Connect access or the microphone) at the moment you first use</p><p>  them. You can revoke permissions any time in your device settings; the</p><p>  related feature will simply stop working.</p>";
+var LEGAL_DISCLAIMER_HTML = "<h3>Estimator Disclaimer \u2014 Contractor &amp; Trade Tools</h3><p>**Applies to: TreeBid Pro, SnowBid, WashPrice Pro, RoofSquares, JobProfit</p><p>Tracker, FieldForms Toolkit, PaintPro, FenceDeck, MarketMaker, and the other</p><p>estimating/pricing tools sold under White Wolf Digital \u2014 including bundles</p><p>that contain them.**</p><h4>Estimating aids, not finished quotes</h4><ul><li>These apps are <b>estimating and record-keeping aids</b>. Every bid, price,</li></ul><p>  cost, measurement, and total they produce is an **estimate based on the</p><p>  information and rates you enter**.</p><ul><li>**You \u2014 the business owner \u2014 are responsible for verifying everything</li></ul><p>  before you quote a customer:** measurements and quantities, site</p><p>  conditions, your current material and labor costs, your rates and margins,</p><p>  taxes, permit and license requirements, disposal rules, and any contract</p><p>  terms.</p><ul><li>Default rates, presets, and sample data included in the apps are starting</li></ul><p>  points only. They are not market prices, not industry standards, and not</p><p>  a recommendation of what you should charge.</p><ul><li>A saved quote keeps the prices in effect when you created it (price</li></ul><p>  snapshot). Changing your presets later does not change saved quotes \u2014</p><p>  and a saved quote is still your responsibility to review before sending.</p><h4>Specific tools</h4><ul><li><b>TreeBid Pro:</b> tree work is dangerous and site-specific. Difficulty</li></ul><p>  factors and presets cannot see the actual tree, lean, rot, targets, or</p><p>  access. Inspect every job in person before final pricing. The \"Invoice</p><p>  with Wave\" feature is an open-and-paste handoff \u2014 TreeBid does not</p><p>  connect to Wave, and the invoice you send from Wave is yours.</p><ul><li><b>RoofSquares / measurement tools:</b> confirm roof measurements and pitch</li></ul><p>  in person or by your usual method before ordering materials.</p><ul><li><b>SnowBid / seasonal tools:</b> route times, snowfall amounts, and service</li></ul><p>  pricing vary by storm and site; seasonal contracts are your agreement</p><p>  with your customer, on your terms.</p><ul><li><b>JobProfit Tracker:</b> profit figures depend on the costs you enter.</li></ul><p>  The app is not accounting or tax software and does not replace your</p><p>  bookkeeper or accountant.</p><h4>Bottom line</h4><p>If an output and your judgment disagree, trust your judgment \u2014 then fix the</p><p>input. We are not responsible for jobs won, lost, or mispriced based on app</p><p>outputs, within the limits of the Terms of Use.</p>";
+(function(){
+  var lst = document.createElement("style");
+  lst.textContent = "@media print{ #legalOverlay{ display:none !important; } }";
+  document.head.appendChild(lst);
+})();
+function sanitizeLegal(v){
+  if(!v || typeof v !== "object") return null;
+  if(typeof v.termsVersion !== "string" || typeof v.acceptedDate !== "string") return null;
+  return { termsVersion: v.termsVersion.slice(0, 10), acceptedDate: v.acceptedDate.slice(0, 40), disclaimerShown: !!v.disclaimerShown };
+}
+function legalRecord(){
+  try{ var s = S; return (s && s.legal) ? sanitizeLegal(s.legal) : null; }catch(e){ return null; }
+}
+function legalVersionCmp(a, b){
+  var pa = String(a).split("."), pb = String(b).split(".");
+  for(var i = 0; i < 3; i++){ var d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0); if(d) return d; }
+  return 0;
+}
+function legalAcceptLine(){
+  var rec = legalRecord();
+  if(rec && rec.acceptedDate) return "You agreed to Terms v" + rec.termsVersion + " on " + rec.acceptedDate.slice(0, 10) + ".";
+  return "No Terms acceptance is recorded on this device yet \u2014 the current Terms will be shown for your agreement.";
+}
+function legalSectionHTML(){
+  var h = '<div style="border-top:2px solid rgba(127,127,127,.35);margin-top:20px;padding-top:14px;">'
+    + '<h2>Legal</h2>'
+    + '<p>' + legalAcceptLine() + '</p>'
+    + '<h3>Terms of Use (v' + TERMS_VERSION + ')</h3>'
+    + '<div style="max-height:340px;overflow-y:auto;border:1px solid rgba(127,127,127,.4);border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.55;">' + LEGAL_TERMS_HTML + '</div>';
+  if(LEGAL_HAS_DISCLAIMER){
+    h += '<h3>Estimator Disclaimer</h3>'
+      + '<div style="max-height:260px;overflow-y:auto;border:1px solid rgba(127,127,127,.4);border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.55;">' + LEGAL_DISCLAIMER_HTML + '</div>';
+  }
+  h += '<h3>Privacy</h3>'
+    + '<p>This app collects no data. It has no accounts, no sign-in, no analytics, and no server \u2014 everything you enter is stored only on this device, in this browser\u2019s storage, and nothing is transmitted anywhere. Files you export (backups, quotes, prints) are under your control. You are responsible for backing up your records with the app\u2019s export tools.</p>'
+    + '<p>Sold by White Wolf Tree Service LLC (White Wolf Digital) \u2014 whitewolfoklahoma@gmail.com</p>'
+    + '</div>';
+  return h;
+}
+function legalFillSection(){
+  var el = document.getElementById("legalSection");
+  if(!el) return;
+  var sig = legalAcceptLine();
+  if(el.getAttribute("data-legal-filled") === sig) return;
+  el.innerHTML = legalSectionHTML(); el.setAttribute("data-legal-filled", sig);
+}
+function legalRefreshSection(){
+  var el = document.getElementById("legalSection");
+  if(el){ el.innerHTML = legalSectionHTML(); el.setAttribute("data-legal-filled", legalAcceptLine()); }
+}
+function legalShowOverlay(isUpdate){
+  if(document.getElementById("legalOverlay")) return;
+  var ov = document.createElement("div");
+  ov.id = "legalOverlay";
+  ov.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(8,10,14,.74);overflow-y:auto;padding:20px 12px;display:flex;align-items:flex-start;justify-content:center;");
+  var discBtn = LEGAL_HAS_DISCLAIMER ? '<button type="button" id="legalReadDisc" style="min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #9aa4b2;background:#ffffff;color:#1c2733;font-size:15px;cursor:pointer;">Read the Estimator Disclaimer</button>' : '';
+  var checkLabel = LEGAL_HAS_DISCLAIMER ? "I have read the disclaimer and I agree to the Terms of Use" : "I have read and I agree to the Terms of Use";
+  ov.innerHTML = '<div style="background:#ffffff;color:#1c2733;max-width:560px;width:100%;border-radius:14px;padding:22px 20px;box-shadow:0 18px 50px rgba(0,0,0,.45);font-size:15px;line-height:1.55;">'
+    + '<h2 style="margin:0 0 6px;font-size:21px;">' + LEGAL_APP_NAME + ' \u2014 Terms of Use</h2>'
+    + (isUpdate ? '<p style="background:#fdf3d7;border:1px solid #e4cf8a;border-radius:8px;padding:8px 10px;"><b>Our terms were updated (v' + TERMS_VERSION + ').</b></p>' : '')
+    + '<p style="font-size:16px;"><b>Your data stays on your device.</b><br><b>Estimates are aids, not guarantees.</b><br><b>You\'re responsible for checking outputs before you rely on them.</b></p>'
+    + '<p>The full Terms' + (LEGAL_HAS_DISCLAIMER ? ' and Disclaimer are' : ' are') + ' one tap away, now and any time in Settings \u2192 Legal.</p>'
+    + '<div id="legalReader" style="display:none;max-height:44vh;overflow-y:auto;border:1px solid #d5dbe3;border-radius:10px;padding:10px 14px;margin:10px 0;font-size:14px;"></div>'
+    + '<p style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" id="legalReadTerms" style="min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #9aa4b2;background:#ffffff;color:#1c2733;font-size:15px;cursor:pointer;">Read the full Terms</button>' + discBtn + '</p>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;cursor:pointer;"><input type="checkbox" id="legalCheck" style="width:22px;height:22px;min-width:22px;margin-top:1px;cursor:pointer;"><span>' + checkLabel + '</span></label>'
+    + '<button type="button" id="legalAgree" disabled style="min-height:52px;width:100%;border:0;border-radius:10px;background:#1f5fa8;color:#ffffff;font-size:17px;font-weight:700;cursor:pointer;opacity:.55;">I Agree</button>'
+    + '<p style="font-size:13px;color:#5a6675;margin-bottom:0;">Your records stay loaded behind this screen and are never deleted or locked, whether or not you agree now.</p>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var reader = ov.querySelector("#legalReader");
+  var showing = "";
+  function toggleReader(kind){
+    if(showing === kind){ reader.style.display = "none"; showing = ""; return; }
+    reader.innerHTML = kind === "terms" ? LEGAL_TERMS_HTML : LEGAL_DISCLAIMER_HTML;
+    reader.style.display = "block"; showing = kind;
+    reader.scrollTop = 0;
+  }
+  ov.querySelector("#legalReadTerms").addEventListener("click", function(){ toggleReader("terms"); });
+  var db = ov.querySelector("#legalReadDisc");
+  if(db) db.addEventListener("click", function(){ toggleReader("disc"); });
+  var legalChk = ov.querySelector("#legalCheck");
+  var legalAgreeBtn = ov.querySelector("#legalAgree");
+  legalChk.addEventListener("change", function(){ legalAgreeBtn.disabled = !legalChk.checked; legalAgreeBtn.style.opacity = legalChk.checked ? "1" : ".55"; });
+  legalAgreeBtn.addEventListener("click", function(){
+    if(!legalChk.checked) return;
+    try{ S.legal = { termsVersion: TERMS_VERSION, acceptedDate: new Date().toISOString(), disclaimerShown: LEGAL_HAS_DISCLAIMER }; save(); }catch(e){}
+    if(ov.parentNode) ov.parentNode.removeChild(ov);
+    legalRefreshSection();
+  });
+}
+function legalInit(){
+  legalFillSection();
+  var rec = legalRecord();
+  if(rec && legalVersionCmp(rec.termsVersion, TERMS_VERSION) >= 0) return;
+  legalShowOverlay(!!rec);
+}
+if(typeof MutationObserver !== "undefined"){
+  var legalObs = new MutationObserver(function(){ legalFillSection(); });
+  legalObs.observe(document.documentElement, { childList: true, subtree: true });
+}
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", function(){ setTimeout(legalInit, 30); });
+else setTimeout(legalInit, 30);
+
+</script>
+</body>
+</html>
